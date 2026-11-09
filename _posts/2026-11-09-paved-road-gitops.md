@@ -1,8 +1,11 @@
 ---
 title: "The Paved Road: Multi-Cloud GitOps for Platform Engineering"
+date: 2026-11-09 13:41:00 +0530
+categories: [Platform Engineering, GitOps]
+tags: [gitops, argo-cd, kubernetes, terraform, helm, multi-cloud, platform-engineering]
+description: How a paved road of golden paths, CI-builds/GitOps-deploys, and a four-layer repo model turns multi-cloud delivery into a file and a pull request.
+media_subpath: /assets/img/posts/paved-road-gitops
 ---
-
-# The Paved Road: Multi-Cloud GitOps for Platform Engineering
 
 *Platform engineering turns complex infrastructure and deployment into a standardized, self-service experience, so teams build, deploy, and scale consistently across clouds, regions, and environments.*
 
@@ -50,7 +53,7 @@ In the GitOps model, responsibilities split cleanly:
 - **CI builds, tests, scans, signs, and publishes** an immutable image, then **opens a pull request** that updates the desired state in Git. It never touches the cluster.
 - **An in-cluster GitOps controller (Argo CD) pulls** the approved desired state from Git and **continuously reconciles** the cluster to match it.
 
-![CI builds and publishes an image, opens a PR to pin the digest, and Argo CD pulls the approved change and reconciles the cluster, continuously re-checking for drift](images/diagram-1-ci-gitops-flow.png)
+![CI builds and publishes an image, opens a PR to pin the digest, and Argo CD pulls the approved change and reconciles the cluster, continuously re-checking for drift](diagram-1-ci-gitops-flow.png)
 *CI never touches the cluster. It builds, signs, and opens a PR, and Argo CD pulls the approved state and reconciles.*
 
 Why this matters:
@@ -66,10 +69,10 @@ Why this matters:
 
 Clean delivery starts with clean ownership. Split repositories into four layers by responsibility:
 
-![Four repositories: application source and team config are owned by application teams; platform Terraform and platform GitOps are owned by the platform. CI pins a digest from source into team config, which is reconciled by the platform GitOps repo, which deploys onto clusters provisioned by platform Terraform](images/diagram-2-four-layer-repo-model.png)
+![Four repositories: application source and team config are owned by application teams; platform Terraform and platform GitOps are owned by the platform. CI pins a digest from source into team config, which is reconciled by the platform GitOps repo, which deploys onto clusters provisioned by platform Terraform](diagram-2-four-layer-repo-model.png)
 *Application teams own source and config; the platform owns infrastructure and the GitOps control plane.*
 
-![Table: the four-layer repository model, listing layer, responsibility, owner, and typical contents for application source, team configuration, platform Terraform, and platform GitOps](images/table-1-four-layer-model.png)
+![Table: the four-layer repository model, listing layer, responsibility, owner, and typical contents for application source, team configuration, platform Terraform, and platform GitOps](table-1-four-layer-model.png)
 
 Two more platform-owned assets round out the paved road. They are separate repos, not folders in the four above:
 
@@ -122,7 +125,7 @@ This is **build-once, promote-many**. CI builds and signs an image one time, and
 
 Repository separation defines ownership, but a paved road also needs **reusable components and a supported contract**, so that teams never design delivery machinery themselves:
 
-![Table: the paved-road components, listing capability and what the framework provides for application scaffold, reusable CI workflows, golden Helm chart, config template, Argo CD framework, tenant baseline, release promotion, and validation and policy](images/table-2-paved-road-components.png)
+![Table: the paved-road components, listing capability and what the framework provides for application scaffold, reusable CI workflows, golden Helm chart, config template, Argo CD framework, tenant baseline, release promotion, and validation and policy](table-2-paved-road-components.png)
 
 The golden chart is where governance happens by default. A team sets a handful of values and gets a security context, health probes, a pod disruption budget, an HPA, a workload-identity service account, and externalized secrets without knowing the YAML behind any of it.
 
@@ -142,7 +145,7 @@ Add-ons then get the same continuous reconciliation, self-heal, and staged rollo
 
 This is the test the whole framework is built to pass. Once the underlying infrastructure exists, onboarding is **declarative**: add or edit a small set of files, open a reviewed PR, and you are done:
 
-![Table: onboarding scenarios, listing what you change and what automation does for a new app, new team, new environment, new region, and new cloud](images/table-3-onboarding-scenarios.png)
+![Table: onboarding scenarios, listing what you change and what automation does for a new app, new team, new environment, new region, and new cloud](table-3-onboarding-scenarios.png)
 
 "A file away" refers to the application and GitOps onboarding steps. A genuinely new region or cloud still needs real infrastructure (network connectivity, identity, registries, DNS, security integration) provisioned and approved first. The framework makes the delivery layer declarative and repeatable once those prerequisites are met. It doesn't conjure a VPC from a YAML file.
 
@@ -152,7 +155,7 @@ The same team config repo and the same golden chart should serve both AKS and EK
 
 The mechanism is **label-driven targeting**. Every cluster is registered with a consistent metadata contract: at minimum `environment`, `cloud`, and `region`, plus optional labels for product, tenant eligibility, or compliance boundary. ApplicationSets use those labels to decide what goes where:
 
-![An ApplicationSet with a label selector targets registered clusters by environment label: environment=sbx matches both an Azure Central US sandbox cluster and an AWS us-east-2 sandbox cluster, while environment=dev matches a separate Azure Central US dev cluster](images/diagram-3-label-driven-targeting.png)
+![An ApplicationSet with a label selector targets registered clusters by environment label: environment=sbx matches both an Azure Central US sandbox cluster and an AWS us-east-2 sandbox cluster, while environment=dev matches a separate Azure Central US dev cluster](diagram-3-label-driven-targeting.png)
 *One ApplicationSet and one label selector, regardless of which cloud or region a matching cluster is in.*
 
 Two properties make this safe at scale:
@@ -174,7 +177,7 @@ GitOps changes where trust lives, so the controls move with it:
 
 Paved roads work because everyone knows what they own. Three roles are separated:
 
-![Table: responsibility boundaries across infrastructure/cloud platform, platform engineering, and application team for cloud accounts, Argo CD control plane, app source and CI tests, app deployment config, deployment reconciliation, and runtime and service health](images/table-4-responsibility-boundaries.png)
+![Table: responsibility boundaries across infrastructure/cloud platform, platform engineering, and application team for cloud accounts, Argo CD control plane, app source and CI tests, app deployment config, deployment reconciliation, and runtime and service health](table-4-responsibility-boundaries.png)
 
 ## What this is and what it isn't
 
