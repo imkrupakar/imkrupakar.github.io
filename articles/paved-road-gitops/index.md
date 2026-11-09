@@ -67,7 +67,7 @@ Why this matters:
 Clean delivery starts with clean ownership. Split repositories into four layers by responsibility:
 
 ![Four repositories: application source and team config are owned by application teams; platform Terraform and platform GitOps are owned by the platform. CI pins a digest from source into team config, which is reconciled by the platform GitOps repo, which deploys onto clusters provisioned by platform Terraform](images/diagram-2-four-layer-repo-model.png)
-*Two repos per side. Application teams own source and config; the platform owns infrastructure and the GitOps control plane.*
+*Application teams own source and config; the platform owns infrastructure and the GitOps control plane.*
 
 ![Table: the four-layer repository model, listing layer, responsibility, owner, and typical contents for application source, team configuration, platform Terraform, and platform GitOps](images/table-1-four-layer-model.png)
 
@@ -198,8 +198,8 @@ Foundational reading:
 - [OpenGitOps principles](https://opengitops.dev/): declarative, versioned, pulled, continuously reconciled.
 - [CNCF Platforms white paper](https://tag-app-delivery.cncf.io/whitepapers/platforms/): platforms, golden paths, cognitive load.
 - [Argo CD best practices: config vs. source repos](https://argo-cd.readthedocs.io/en/stable/user-guide/best_practices/#separating-config-vs-source-code-repositories).
-- [Team Topologies](https://teamtopologies.com/): platform-as-a-product, thinnest viable platform.
-- [Paved roads / golden paths](https://www.thoughtworks.com/radar/techniques/paved-roads).
+- [GitOps architecture patterns and anti-patterns](https://platformengineering.org/blog/gitops-architecture-patterns-and-anti-patterns)
+- [What is platform engineering?](https://platformengineering.org/blog/what-is-platform-engineering)
 
 ## The point of a paved road
 
