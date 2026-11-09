@@ -1,3 +1,7 @@
+---
+title: "The Paved Road: Multi-Cloud GitOps for Platform Engineering"
+---
+
 # The Paved Road: Multi-Cloud GitOps for Platform Engineering
 
 *Platform engineering turns complex infrastructure and deployment into a standardized, self-service experience — so teams build, deploy, and scale consistently across clouds, regions, and environments.*
