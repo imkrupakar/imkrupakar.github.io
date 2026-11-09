@@ -1,6 +1,6 @@
-# Articles
+# Medium Articles
 
-Source and assets for published articles, one folder per article under `articles/`.
+Source and assets for published Medium articles, one folder per article under `articles/`.
 
 | Article | Path |
 |---|---|
