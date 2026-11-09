@@ -16,7 +16,7 @@ Most internal platforms stop at compute. The platform team provisions the cloud 
 That sounds empowering. In practice, **every team reinvents application delivery.** Each one writes its own deployment pipelines, wires its own cluster credentials, invents its own folder layout for environment config, and improvises its own promotion and rollback logic. Multiply that by every team, every environment, every cloud, and every region, and you get:
 
 - **Duplicated delivery logic:** the same deployment plumbing, written N slightly different ways.
-- **Credential sprawl:** push-based pipelines hold cluster-admin-grade credentials, because they run `kubectl apply` directly.
+- **Credential sprawl:** push-based pipelines hold credentials with write access to the cluster, because they run `kubectl apply` or `helm upgrade` directly.
 - **No continuous reconciliation:** once a pipeline finishes, nothing keeps the cluster matching what's in Git. Manual "just this once" changes during an incident quietly become permanent drift.
 - **Add-on drift:** shared add-ons installed as Terraform Helm releases are only checked when Terraform runs, so live state diverges between applies.
 - **Fragile recovery:** rebuilding a cluster means re-running every team's bespoke process to get back to a known state.
@@ -79,8 +79,6 @@ Two more platform-owned assets round out the paved road. They are separate repos
 - **A shared CI workflow repo:** reusable build, sign, promote, and validate workflows that teams call instead of copying.
 
 The platform GitOps repo is a **governance control plane**, and teams do not open a PR against it for every release. Each team's own config repo stays the source of truth for that team's workloads, while the platform repo defines the framework they work within.
-
-Each layer is a real, public repo. The links are in the reference implementation section at the end.
 
 ## Layered configuration: define only what differs
 
