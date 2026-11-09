@@ -16,7 +16,6 @@ Most internal platforms stop at compute. The platform team provisions the cloud 
 That sounds empowering. In practice, **every team reinvents application delivery.** Each one writes its own deployment pipelines, wires its own cluster credentials, invents its own folder layout for environment config, and improvises its own promotion and rollback logic. Multiply that by every team, every environment, every cloud, and every region, and you get:
 
 - **Duplicated delivery logic:** the same deployment plumbing, written N slightly different ways.
-- **Inconsistent configuration:** no two teams structure their environment values the same way.
 - **Credential sprawl:** push-based pipelines hold cluster-admin-grade credentials, because they run `kubectl apply` directly.
 - **No continuous reconciliation:** once a pipeline finishes, nothing keeps the cluster matching what's in Git. Manual "just this once" changes during an incident quietly become permanent drift.
 - **Add-on drift:** shared add-ons installed as Terraform Helm releases are only checked when Terraform runs, so live state diverges between applies.
@@ -35,7 +34,7 @@ Teams shouldn't read a wiki and hope they got security right. They should consum
 
 - The **CNCF Platforms white paper** frames platforms as things that "embed governance and controls in templates, patterns, and capabilities," existing to reduce cognitive load and reduce security and regulatory risk by governing capabilities.
 - **Golden paths**, or paved roads, are the supported, opinionated, well-lit route that is the easiest way to do the right thing.
-- **Team Topologies** calls this platform-as-a-product: the platform team's customers are the stream-aligned application teams.
+- **[platformengineering.org](https://platformengineering.org/blog/what-is-platform-engineering)** treats the platform as a product with users: the platform team gathers their feedback and keeps iterating, because a platform is a long-term effort and not a short-term fix.
 - **GitOps** supplies the delivery mechanism: declarative, versioned, pulled automatically, and continuously reconciled.
 
 A simple test shows whether a platform is paved:
