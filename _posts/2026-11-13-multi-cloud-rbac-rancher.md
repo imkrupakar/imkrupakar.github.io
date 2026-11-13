@@ -1,9 +1,9 @@
 ---
-title: "One Login, Every Cluster: Standardizing Kubernetes RBAC Across Clouds"
+title: "One Portal, Every Cluster: Centralized Kubernetes RBAC Across Clouds"
 date: 2026-11-13 12:00:00 +0530
 categories: [Platform Engineering, Kubernetes]
 tags: [kubernetes, rbac, rancher, identity, aks, eks, gke, multi-cloud, platform-engineering]
-description: A follow-up to the paved road. How to give people consistent, auditable access to Kubernetes clusters across managed providers with one identity source, and when Rancher is worth adding as a common management portal with centralized RBAC.
+description: "A follow-up to the paved road: a common management portal across Kubernetes clusters on any managed provider, with centralized RBAC driven by your existing identity provider, and when Rancher is worth adding to get there."
 media_subpath: /assets/img/posts/multi-cloud-rbac-rancher
 mermaid: true
 ---
