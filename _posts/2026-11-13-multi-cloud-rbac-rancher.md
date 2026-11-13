@@ -1,9 +1,9 @@
 ---
-title: "One Portal, Every Cluster: Centralized Kubernetes RBAC Across Clouds"
+title: "One Portal, Every Cluster: Multi-Cloud Kubernetes Management with Centralized RBAC"
 date: 2026-11-13 12:00:00 +0530
 categories: [Platform Engineering, Kubernetes]
 tags: [kubernetes, rbac, rancher, identity, aks, eks, gke, multi-cloud, platform-engineering]
-description: "A follow-up to the paved road: a common management portal across Kubernetes clusters on any managed provider, with centralized RBAC driven by your existing identity provider, and when Rancher is worth adding to get there."
+description: "A follow-up to the paved road: one management portal for Kubernetes clusters on any managed provider, with centralized RBAC driven by your existing identity provider, and when Rancher is worth adding to get there."
 media_subpath: /assets/img/posts/multi-cloud-rbac-rancher
 mermaid: true
 ---
@@ -16,7 +16,7 @@ On the paved road, nobody runs `kubectl apply` against production. CI builds, Ar
 
 People still need to get *into* clusters, though. Developers read logs and `exec` into pods while debugging, SREs investigate incidents, and support checks what is running where. The paved-road article named "RBAC and tenancy boundaries" as one of the things real adoption still needs. This article picks that up.
 
-Clusters rarely stay on one provider. A typical SaaS fleet ends up on several managed Kubernetes services, such as Amazon EKS, Azure AKS, and Google GKE, across several environments and regions. The goal is **one identity source and one RBAC model for every cluster**, so that access works the same way regardless of where a cluster runs.
+Clusters rarely stay on one provider. A typical SaaS fleet ends up on several managed Kubernetes services, such as Amazon EKS, Azure AKS, Google GKE, and Oracle OKE, across several environments and regions. The goal is **one identity source and one RBAC model for every cluster**, so that access works the same way regardless of where a cluster runs.
 
 The examples below use AKS and EKS, because that is what the reference implementation runs, but the approach applies to any mix of managed Kubernetes services.
 
@@ -56,8 +56,8 @@ The rest of this article focuses on Rancher, for teams that **want a common mana
 
 [Rancher](https://www.rancher.com/) is an open-source Kubernetes management platform from SUSE. It can import existing clusters from any provider and put them behind one UI, one login, and one RBAC model, without changing how those clusters are provisioned or deployed to.
 
-![Corporate identity provider (Entra ID, Okta, or Keycloak) providing users, groups, MFA and SSO to a Rancher management server, which provides central cluster access, projects and namespaces to Azure AKS clusters A, B, C and AWS EKS clusters D, E, F, each enforcing Kubernetes RBAC](rancher-access-overview.png)
-*One identity provider, one access layer, native Kubernetes RBAC on every cluster (AKS and EKS shown as examples)*
+![A corporate identity provider (Entra ID, Okta, or Keycloak) supplies users, groups, MFA and SSO to the Rancher management server, which provides central access, RBAC and cluster management for AKS clusters in Azure Central US and West Europe, EKS clusters in AWS US East (Ohio) and EU (Ireland), and GKE and Oracle OKE clusters in other clouds, each with Dev, QA, Staging and Prod environments](rancher-multi-cloud-overview.jpg)
+*One identity provider and one management portal, with the same RBAC across every cloud, region, and environment*
 
 **What Rancher gives you:**
 
@@ -65,6 +65,7 @@ The rest of this article focuses on Rancher, for teams that **want a common mana
 - One place to map IdP groups to roles per cluster or per project.
 - One audit trail of who accessed what through Rancher.
 - No provider-specific tooling (`az` and `kubelogin`, `aws eks`, `gcloud`) for developers and support.
+- Works with private clusters, with no inbound ports opened to them (see [below](#private-clusters-no-inbound-ports)).
 
 **What it doesn't do:**
 
@@ -96,6 +97,23 @@ sequenceDiagram
     K->>K: Native Kubernetes RBAC (synced by Rancher)
     K-->>U: Response
 ```
+
+### Private clusters, no inbound ports
+
+Production clusters usually have a **private API server**: it is reachable only from inside the cloud network, not from the internet. That doesn't stop Rancher from managing them, because the connection runs the other way.
+
+- **The agent dials out.** The Rancher agent in each cluster opens an outbound, long-lived WebSocket connection over HTTPS (port 443) to the Rancher server.
+- **Rancher replies through the tunnel.** Every request Rancher sends to the cluster, including your `kubectl` calls, travels back down that same connection. Rancher never opens a connection into the cluster.
+- **Result:** a private AKS cluster (or a private EKS or GKE cluster) can be onboarded with **no inbound ports** opened to the cluster or its API server.
+
+**What you still need:**
+
+- **Outbound 443 from the cluster to the Rancher URL.** Allow it in the egress firewall or NAT, make sure the Rancher hostname resolves, and use a certificate the agent trusts.
+- **Inbound 443 on Rancher itself,** from the agents and from your users. Rancher is the one endpoint that has to be reachable.
+
+**Registration is automated.** The agent is installed from a per-cluster registration manifest. In the reference [`rancher-register`](https://github.com/imkrupakar/platform-terraform/tree/main/modules/rancher-register) module, the same `terraform apply` that creates the cluster also registers it in Rancher and applies that manifest with the cluster's own credentials. The pipeline that provisions the cluster already has a path to its API server, so onboarding to Rancher adds no manual step and no extra network access.
+
+This applies to clusters you **import** into Rancher, which is the approach recommended here. Clusters that Rancher provisions itself are managed differently.
 
 ### Authentication
 
@@ -200,6 +218,8 @@ The paved-road design makes that a low-risk addition later. Deployments, recover
 
 - **Platform Terraform** (clusters, identity, Argo CD bootstrap, Rancher registration): [`imkrupakar/platform-terraform`](https://github.com/imkrupakar/platform-terraform)
 - **Platform GitOps** (Argo CD control plane, tenant onboarding): [`imkrupakar/platform-gitops`](https://github.com/imkrupakar/platform-gitops)
+- [Rancher: communicating with downstream clusters](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture/communicating-with-downstream-user-clusters)
+- [Rancher: port requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-requirements/port-requirements)
 - [Rancher: authentication configuration](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/authentication-permissions-and-global-configuration/authentication-config)
 - [AKS: Microsoft Entra integration](https://learn.microsoft.com/en-us/azure/aks/enable-authentication-microsoft-entra-id)
 - [EKS: access entries](https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html)
