@@ -10,7 +10,7 @@ mermaid: true
 
 *This is a follow-up to [The Paved Road: Multi-Cloud GitOps for Platform Engineering](/posts/paved-road-gitops/). That article covered how changes reach clusters. This one covers how people reach them.*
 
-## Deployments are solved, human access isn't
+## GitOps for deployments, Rancher for people
 
 On the paved road, nobody runs `kubectl apply` against production. CI builds, Argo CD deploys, and Git is the only way a change gets into a cluster.
 
@@ -183,13 +183,11 @@ A Rancher outage **does not stop deployments or running workloads**, because Arg
 3. **Import the clusters.** Don't have Rancher provision them, because Terraform already does.
 4. **Use your IdP as the source of truth.** Map IdP groups to Rancher roles, and manage membership only in the IdP.
 5. **Keep break-glass access.** A small admin group keeps direct access through each provider's IAM, so a Rancher outage doesn't lock you out.
-6. **Manage Rancher config in Git** (role bindings, projects), with a small Argo CD on the tools cluster.
-7. **Limit direct access afterwards.** If many people keep direct cloud access, Rancher's audit and boundaries are bypassed.
+6. **Limit direct access afterwards.** If many people keep direct cloud access, Rancher's audit and boundaries are bypassed.
 
 ## Risks
 
 - **Rancher becomes a critical, high-privilege system.** Its agents hold admin credentials on every cluster, so secure and patch it accordingly.
-- **You add a second RBAC system.** Keep Rancher's generated objects separate from the RBAC you manage in Git: don't hand-edit the RoleBindings Rancher creates, and don't manage the same bindings from Git as well.
 - **A Rancher outage blocks the human path through it,** though not deployments.
 
 ## Recommendation
