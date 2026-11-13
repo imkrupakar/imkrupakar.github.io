@@ -61,9 +61,9 @@ The rest of this article focuses on Rancher, for teams that **want a common mana
 
 **What Rancher gives you:**
 
-- One login through your IdP, and one kubeconfig and UI for all clusters on every provider.
+- One login through your IdP, one UI for all clusters on every provider, and the same kubeconfig flow for each of them. Rancher issues a kubeconfig per cluster, and you can merge them into one file.
 - One place to map IdP groups to roles per cluster or per project.
-- One audit trail of who accessed what through Rancher.
+- One audit trail of who accessed what through Rancher, once you enable Rancher's API audit log (it is off by default).
 - No provider-specific tooling (`az` and `kubelogin`, `aws eks`, `gcloud`) for developers and support.
 - Works with private clusters, with no inbound ports opened to them (see [below](#private-clusters-no-inbound-ports)).
 
@@ -95,7 +95,9 @@ sequenceDiagram
     R->>A: Forward via agent tunnel
     A->>K: Request with Impersonate-User / Impersonate-Group
     K->>K: Native Kubernetes RBAC (synced by Rancher)
-    K-->>U: Response
+    K-->>A: Response
+    A-->>R: Back through the tunnel
+    R-->>U: Response
 ```
 
 ### Private clusters, no inbound ports
@@ -113,6 +115,11 @@ Production clusters usually have a **private API server**: it is reachable only 
 
 **Registration is automated.** The agent is installed from a per-cluster registration manifest. In the reference [`rancher-register`](https://github.com/imkrupakar/platform-terraform/tree/main/modules/rancher-register) module, the same `terraform apply` that creates the cluster also registers it in Rancher and applies that manifest with the cluster's own credentials. The pipeline that provisions the cluster already has a path to its API server, so onboarding to Rancher adds no manual step and no extra network access.
 
+Two notes on the reference module:
+
+- **It is switched off by default.** Registration only runs when a single `rancher` variable is set. A rebuild can therefore run while Rancher is down, and the cluster can be registered once Rancher is back. Otherwise the apply would need a live Rancher API to finish.
+- **It is wired up for AKS today.** It builds the kubeconfig from the cluster's client certificate. EKS uses token authentication instead (`aws eks get-token`), so an EKS stack needs that change before it can use the same module.
+
 This applies to clusters you **import** into Rancher, which is the approach recommended here. Clusters that Rancher provisions itself are managed differently.
 
 ### Authentication
@@ -120,21 +127,22 @@ This applies to clusters you **import** into Rancher, which is the approach reco
 - The IdP authenticates the user and returns their **group memberships** in the SAML assertion or OIDC token. The IdP application needs to send a groups attribute, and Rancher's auth config must name that field.
 - Rancher refers to users and groups as principals. With Okta, a group looks like `okta_group://team-alpha`. The prefix depends on which IdP Rancher is configured with.
 - The user's kubeconfig points at **Rancher**, not at the provider's API server. No provider IAM is involved in this path.
+- **Group membership is cached in Rancher.** For most providers Rancher refreshes it on a schedule, by default hourly when the user is active plus a daily resync. **SAML providers are the exception:** Rancher can't look users up through SAML, so it refreshes their groups only when they next log in to the Rancher UI. Removing someone from an IdP group therefore doesn't instantly revoke a Rancher token they already hold. For urgent offboarding, also disable the user in Rancher and delete their API tokens.
 
 ### Authorization
 
-Rancher bindings attach an IdP group to a **role template** (Rancher's reusable role definition, which becomes a Kubernetes Role or ClusterRole on the cluster) at one of three scopes:
+Rancher bindings attach an IdP group to a role at one of three scopes. Rancher-wide permissions, such as managing Rancher itself, come from a **global role**. Cluster and project permissions come from a **role template**, Rancher's reusable role definition, which becomes a Kubernetes Role or ClusterRole on the cluster.
 
 | Scope | Binding | Example |
 |---|---|---|
-| Rancher-wide | GlobalRoleBinding | Platform admins |
+| Rancher-wide | GlobalRoleBinding (to a global role) | Platform admins |
 | Cluster | ClusterRoleTemplateBinding (CRTB) | SRE read-only on prod clusters |
 | Project (a set of namespaces) | ProjectRoleTemplateBinding (PRTB) | Tenant team on its own namespaces |
 
 ### Enforcement
 
-- Rancher's agent syncs these bindings into **native Kubernetes Roles and RoleBindings** on each cluster.
-- Rancher forwards each request through the agent tunnel using Kubernetes **impersonation**: the request reaches the API server as the original user and their groups. The cluster's own API server makes the final RBAC decision, the same way on every provider.
+- Rancher syncs the cluster and project bindings into **native Kubernetes Roles and RoleBindings** on each cluster.
+- Rancher forwards each request through the agent tunnel using Kubernetes **impersonation**. The request reaches the API server as the user's Rancher identity (an ID such as `u-abc123`) and the group principals Rancher has mapped for them, not as the raw IdP username. The cluster's own API server makes the final RBAC decision, the same way on every provider.
 
 ## Mapping a project to an IdP group
 
@@ -146,7 +154,9 @@ On the paved road, each **tenant** is an application team with its own namespace
 | `roleTemplateName` | `project-member`, `project-owner`, or `read-only` |
 | `groupPrincipalName` | `okta_group://team-alpha` |
 
-In Terraform, the [`rancher-register`](https://github.com/imkrupakar/platform-terraform/tree/main/modules/rancher-register) module registers each cluster with Rancher and creates one project per tenant, plus a PRTB for that tenant's group:
+Choose the role per environment. `project-member` lets the group create, change, and delete workloads in its namespaces, which suits a sandbox. In production, where Git is the only way changes get in, bind `read-only` or a custom role that allows only viewing, logs, and `exec`. Otherwise the "Git only" rule is a policy that RBAC doesn't enforce.
+
+In Terraform, the [`rancher-register`](https://github.com/imkrupakar/platform-terraform/tree/main/modules/rancher-register) module registers each cluster with Rancher and creates one project per tenant, plus a PRTB for that tenant's group (it binds `project-member`, since the reference stack is a sandbox):
 
 ```hcl
 tenants = {
@@ -166,17 +176,18 @@ flowchart LR
     Argo -->|creates + sets projectId| N2
 ```
 
-The diagram simplifies one detail: Rancher projects are per cluster, so there is a `team-alpha` project on each cluster. The same Terraform map creates the project and PRTB on all of them, so they stay identical.
+The diagram simplifies one detail: Rancher projects are per cluster, so there is a `team-alpha` project on each cluster. Passing the same `tenants` map to every cluster's registration creates the same project and PRTB on each one, so they stay identical.
 
 ## What cloud IAM is still used for
 
 | Concern | Mechanism |
 |---|---|
 | Provisioning (Terraform, CI) | OIDC federation from CI into each provider (for example, Azure workload identity federation and AWS IAM OIDC roles) |
-| Workload identity | AKS workload identity, EKS IRSA or Pod Identity, GKE Workload Identity (for example, image pulls and secrets access) |
-| Break-glass | A small admin group with direct access through each provider (for example, an Entra admin group on AKS and an IAM access entry on EKS), for when Rancher is unavailable |
+| Workload identity | AKS workload identity, EKS IRSA or Pod Identity, GKE Workload Identity (for example, reading secrets or calling cloud APIs from a pod) |
+| Image pulls | The node's identity (AKS kubelet identity, EKS node IAM role, GKE node service account), not the pod's |
+| Break-glass | A small admin group with direct access through each provider, for when Rancher is unavailable. For example, an Entra admin group on AKS, or an IAM access entry plus the `AmazonEKSClusterAdminPolicy` access policy on EKS |
 
-A Rancher outage **does not stop deployments or running workloads**, because Argo CD reconciles independently of Rancher. It only affects human access through Rancher, and break-glass access covers that gap.
+A Rancher outage **does not stop deployments or running workloads**, because Argo CD reconciles independently of Rancher. It only affects human access through Rancher, and break-glass access covers that gap. For private clusters, break-glass also needs a network path to the API server, such as a VPN or bastion, tested before you need it.
 
 ## Should you add Rancher?
 
@@ -197,11 +208,12 @@ A Rancher outage **does not stop deployments or running workloads**, because Arg
 ## How to adopt it safely
 
 1. **Run it on a dedicated tools cluster,** highly available and not shared with workloads.
-2. **Use it for human access only.** Argo CD, Terraform, and CI don't go through it. This keeps your recovery model, "rebuild from Terraform and Git", independent of Rancher.
+2. **Use it for human access only.** Argo CD and CI don't go through it. Keep cluster registration optional in Terraform, so that "rebuild from Terraform and Git" still works while Rancher is down.
 3. **Import the clusters.** Don't have Rancher provision them, because Terraform already does.
-4. **Use your IdP as the source of truth.** Map IdP groups to Rancher roles, and manage membership only in the IdP.
-5. **Keep break-glass access.** A small admin group keeps direct access through each provider's IAM, so a Rancher outage doesn't lock you out.
-6. **Limit direct access afterwards.** If many people keep direct cloud access, Rancher's audit and boundaries are bypassed.
+4. **Use your IdP as the source of truth.** Map IdP groups to Rancher roles, and manage membership only in the IdP. Add "disable the user and delete their tokens in Rancher" to the offboarding runbook.
+5. **Turn on the audit log.** Enable Rancher's API audit log, ship it to your log platform, and keep each cluster's own audit logs as well.
+6. **Keep break-glass access.** A small admin group keeps direct access through each provider's IAM, so a Rancher outage doesn't lock you out.
+7. **Limit direct access afterwards.** If many people keep direct cloud access, Rancher's audit and boundaries are bypassed.
 
 ## Risks
 
@@ -212,7 +224,7 @@ A Rancher outage **does not stop deployments or running workloads**, because Arg
 
 Start without Rancher while the fleet is small, and standardize on **groups in your existing IdP, federated into each provider** from day one. Add Rancher when you want a common management portal and centralized RBAC, or when the cluster count or volume of access requests makes the per-provider approach painful.
 
-The paved-road design makes that a low-risk addition later. Deployments, recovery, and workload identity never depend on Rancher, so adding it touches only human access.
+The paved-road design makes that a low-risk addition later. Deployments and workload identity never depend on Rancher, and registration can be switched off for a rebuild, so adding it touches only human access.
 
 ## Reference implementation
 
@@ -220,6 +232,9 @@ The paved-road design makes that a low-risk addition later. Deployments, recover
 - **Platform GitOps** (Argo CD control plane, tenant onboarding): [`imkrupakar/platform-gitops`](https://github.com/imkrupakar/platform-gitops)
 - [Rancher: communicating with downstream clusters](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture/communicating-with-downstream-user-clusters)
 - [Rancher: port requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-requirements/port-requirements)
+- [Rancher: users, groups, and membership refresh](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/authentication-permissions-and-global-configuration/authentication-config/manage-users-and-groups)
+- [Rancher: API audit log](https://ranchermanager.docs.rancher.com/how-to-guides/advanced-user-guides/enable-api-audit-log)
+- [EKS: access policies](https://docs.aws.amazon.com/eks/latest/userguide/access-policies.html)
 - [Rancher: authentication configuration](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/authentication-permissions-and-global-configuration/authentication-config)
 - [AKS: Microsoft Entra integration](https://learn.microsoft.com/en-us/azure/aks/enable-authentication-microsoft-entra-id)
 - [EKS: access entries](https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html)
