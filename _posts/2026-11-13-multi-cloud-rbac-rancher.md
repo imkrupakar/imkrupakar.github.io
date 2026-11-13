@@ -115,13 +115,6 @@ Production clusters usually have a **private API server**: it is reachable only 
 
 **Registration is automated.** The agent is installed from a per-cluster registration manifest. In the reference [`rancher-register`](https://github.com/imkrupakar/platform-terraform/tree/main/modules/rancher-register) module, the same `terraform apply` that creates the cluster also registers it in Rancher and applies that manifest with the cluster's own credentials. The pipeline that provisions the cluster already has a path to its API server, so onboarding to Rancher adds no manual step and no extra network access.
 
-Two notes on the reference module:
-
-- **It is switched off by default.** Registration only runs when a single `rancher` variable is set. A rebuild can therefore run while Rancher is down, and the cluster can be registered once Rancher is back. Otherwise the apply would need a live Rancher API to finish.
-- **It is wired up for AKS today.** It builds the kubeconfig from the cluster's client certificate. EKS uses token authentication instead (`aws eks get-token`), so an EKS stack needs that change before it can use the same module.
-
-This applies to clusters you **import** into Rancher, which is the approach recommended here. Clusters that Rancher provisions itself are managed differently.
-
 ### Authentication
 
 - The IdP authenticates the user and returns their **group memberships** in the SAML assertion or OIDC token. The IdP application needs to send a groups attribute, and Rancher's auth config must name that field.
