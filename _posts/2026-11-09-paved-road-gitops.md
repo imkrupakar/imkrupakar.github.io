@@ -9,11 +9,11 @@ media_subpath: /assets/img/posts/paved-road-gitops
 
 *Platform engineering turns complex infrastructure and deployment into a standardized, self-service experience, so teams build, deploy, and scale consistently across clouds, regions, and environments.*
 
-## Compute isn't a platform
+## A cluster isn't a platform
 
-Most internal platforms stop at compute. The platform team provisions the cloud accounts, the networking, and a Kubernetes cluster, hands it over, and says: *you deploy and operate your apps on it.*
+Many internal platforms stop at infrastructure. The platform team sets up cloud accounts, networking, and a Kubernetes cluster, then hands it over with one instruction: *deploy and run your apps on it.*
 
-That sounds empowering. In practice, **every team reinvents application delivery.** Each one writes its own deployment pipelines, wires its own cluster credentials, invents its own folder layout for environment config, and improvises its own promotion and rollback logic. Multiply that by every team, every environment, every cloud, and every region, and you get:
+That looks like autonomy. In practice, it means **every team has to build its own way of delivering software.** Each team writes its own deployment pipelines, manages its own cluster credentials, chooses its own folder layout for environment config, and invents its own way to promote and roll back releases. Repeat that for every team, environment, cloud, and region, and the same problems appear everywhere:
 
 - **Duplicated delivery logic:** the same deployment plumbing, written N slightly different ways.
 - **Credential sprawl:** push-based pipelines hold credentials with write access to the cluster, because they run `kubectl apply` or `helm upgrade` directly.
